@@ -8,7 +8,7 @@ Run with: python bot.py
 import os
 import httpx
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,6 +16,11 @@ load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # optional: used to humanize responses
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+ALERT_CHANNEL_ID = os.getenv("ALERT_CHANNEL_ID")  # optional: channel for proactive alerts
+
+# tracks which alert messages are currently "active" so we only post each one
+# once per occurrence, not on every poll while it's still true
+_seen_alert_messages: set[str] = set()
 
 ROOM_ALIASES = {
     "drawing": "drawing", "drawingroom": "drawing", "drawing-room": "drawing",
@@ -68,6 +73,42 @@ async def humanize(raw_summary: str) -> str:
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    if ALERT_CHANNEL_ID:
+        if not check_alerts_loop.is_running():
+            check_alerts_loop.start()
+    else:
+        print("ALERT_CHANNEL_ID not set -- proactive alert posting is disabled.")
+
+
+@tasks.loop(seconds=30)
+async def check_alerts_loop():
+    """Polls the backend for active alerts and posts any new ones to the
+    designated channel. An alert is only posted once per occurrence -- if it
+    stays active across polls it won't repeat, but if it clears and comes
+    back later it will post again."""
+    global _seen_alert_messages
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{BACKEND_URL}/alerts")
+            alerts = resp.json()
+    except Exception as e:
+        print(f"Alert poll failed: {e}")
+        return
+
+    current_types = {a["type"] for a in alerts}
+    new_types = current_types - _seen_alert_messages
+
+    if new_types:
+        channel = bot.get_channel(int(ALERT_CHANNEL_ID))
+        if channel is None:
+            print(f"Could not find channel with ID {ALERT_CHANNEL_ID}")
+        else:
+            for alert in alerts:
+                if alert["type"] in new_types:
+                    friendly = await humanize(f"Alert: {alert['message']}")
+                    await channel.send(f"\u26a0\ufe0f {friendly}")
+
+    _seen_alert_messages = current_types
 
 
 @bot.command(name="status")

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import OfficeLayout from './OfficeLayout.jsx'
 
 const BACKEND_HTTP = 'http://localhost:8000'
 const BACKEND_WS = 'ws://localhost:8000/ws'
@@ -135,6 +136,10 @@ export default function App() {
           >
             {connected ? 'Live' : 'Disconnected'}
           </span>
+        </div>
+
+        <div className="mb-6">
+          <OfficeLayout devices={devices} />
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
