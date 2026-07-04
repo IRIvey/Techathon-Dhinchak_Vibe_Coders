@@ -1,4 +1,3 @@
-
 import RoomCard from './RoomCard';
 import { ROOMS } from '../data/backendApi';
 
@@ -29,7 +28,7 @@ export default function DeviceStatusPanel({ deviceState, onDeviceClick }) {
             <p className="text-gray-600">Loading devices...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col sm:flex-row divide-y sm:divide-y-0 divide-x-0 sm:divide-x divide-gray-300">
             {ROOMS.map(room => {
               const roomDevices = Object.values(deviceState).filter(
                 d => d.room === room
